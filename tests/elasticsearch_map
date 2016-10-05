@@ -1,0 +1,112 @@
+"qualityCheck": {
+	"_id": 		{ "type": "string" },
+	"fileType": 	{ "type": "string" },
+	"site":		{ "type": "string" },
+	"datetime":	{ "type": "date" },
+	"systems": 	{
+		"properties": 	{
+			"system": 	{ "type": "string" },
+			"metrics": 	{
+				"type": 	"object",
+				"properties": 	{
+					"codes": 	{
+						"properties": 	{
+							"obsType": 	{ "type": "str" },
+							"expObs": 	{ "type": "integer" },
+							"havObs":	{ "type": "integer" },
+							"multipath":	{ "type": "float" }
+						}
+					},
+					"phases": 	{
+						"properties": 	{
+							"obsType":      { "type": "str" },
+                                	        	"expObs":       { "type": "integer" },
+	                                	        "havObs":       { "type": "integer" },
+							"cycleSlips":	{ "type": "integer" }
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+# e.g.
+
+{
+	"_id": 		"ALIC20162510000DAILY",
+	"fileType": 	"daily",
+	"site":		"ALIC",
+	"datetime": 	"20162510000",
+	"systems": 	[
+		{
+			"system": 	"GPS",
+			"metrics": 	{
+				"codes": 	[
+					{
+						"obsType": 	"C1C",
+						"expObs": 	9566,
+						"havObs":	7066,
+						"multipath":	15.754
+					}, { ... }, { ... }
+				],
+				"phases": 	[
+					{
+						"obsType": 	"L1C",
+						"expObs": 	9566,
+						"havObs":	7066,
+						"cycleSlips": 	21
+					}, { ... }, { ... }
+				]
+			}
+		}, { ... }, { ... }
+	]
+}
+
+
+
+
+# Alternative
+
+"observations": {
+	"_id": 		{ "type": "string" },
+	"fileType":	{ "type": "string" },
+	"site":		{ "type": "string" },
+	"datetime":	{ "type": "date" },
+	"system":	{ "type": "string" },
+	"obsType":	{ "type": "string" },
+	"expObs": 	{ "type": "integer" },
+	"havObs":	{ "type": "integer" },
+	"multipath": 	{ "type": "float" }
+	"cycleSlips": 	{ "type": "integer" }
+}
+
+# e.g.
+
+{
+	"_id":		"ALIC20162510000DAILYGPSC1C",
+	"fileType":	"daily",
+	"site":		"ALIC",
+	"datetime":	"20162510000",
+	"system":	"GPS",
+	"obsType":	"C1C",
+	"expObs":	9566,
+	"havObs":	7066,
+	"multipath":	15.754
+}
+
+{
+	"_id":		"ALIC20162510000DAILYGPSL1C",
+	"fileType":	"daily",
+	"site":		"ALIC",
+	"datetime":	"20162510000",
+	"system":	"GPS",
+	"obsType":	"L1C",
+	"expObs":	9566,
+	"havObs":	6834,
+	"cycleSlips":	21
+}
+
+https://www.elastic.co/guide/en/elasticsearch/reference/current/getting-started.html
+https://www.elastic.co/guide/en/elasticsearch/reference/current/search-template.html
+http://stackoverflow.com/questions/9605292/make-elasticsearch-only-return-certain-fields

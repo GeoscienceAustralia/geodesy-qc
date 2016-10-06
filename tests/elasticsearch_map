@@ -1,11 +1,11 @@
 "qualityCheck": {
 	"_id": 		{ "type": "string" },
-	"fileType": 	{ "type": "string" },
 	"site":		{ "type": "string" },
 	"datetime":	{ "type": "date" },
+	"fileType": 	{ "type": "string" },
 	"systems": 	{
 		"properties": 	{
-			"system": 	{ "type": "string" },
+			"systemName": 	{ "type": "string" },
 			"metrics": 	{
 				"type": 	"object",
 				"properties": 	{
@@ -32,15 +32,16 @@
 }
 
 # e.g.
+# _id must represent results for specific site, time, and type - so newer QC metrics always overwrite
 
 {
 	"_id": 		"ALIC20162510000DAILY",
-	"fileType": 	"daily",
 	"site":		"ALIC",
 	"datetime": 	"20162510000",
+	"fileType": 	"daily",
 	"systems": 	[
 		{
-			"system": 	"GPS",
+			"systemName": 	"GPS",
 			"metrics": 	{
 				"codes": 	[
 					{
@@ -67,6 +68,7 @@
 
 
 # Alternative
+# Should "codes" and "phases" be different objects as above, or just null value multipath or cyclesplips depending?
 
 "observations": {
 	"_id": 		{ "type": "string" },
@@ -107,6 +109,52 @@
 	"cycleSlips":	21
 }
 
+
+# Alt alt
+
+"qualityCheck": {
+        "_id":          { "type": "string" },
+        "site":         { "type": "string" },
+        "datetime":     { "type": "date" },
+        "fileType":     { "type": "string" },
+        "metrics":      {
+                "properties":   {
+                        "systemName":   { "type": "string" },
+			"obsType":      { "type": "str" },
+			"expObs":       { "type": "integer" },
+			"havObs":       { "type": "integer" },
+			"multipath":    { "type": "float" }
+			"cycleSlips":   { "type": "integer" }
+		}
+        }
+}
+
+# e.g.
+
+{
+        "_id":          "ALIC20162510000DAILY",
+        "site":         "ALIC",
+        "datetime":     "20162510000",
+        "fileType":     "daily",
+        "metrics":      [
+                {
+                        "systemName":   "GPS",
+			"obsType":      "C1C",
+			"expObs":       9566,
+			"havObs":       7066,
+			"multipath":    15.754
+		}, {
+			"systemName": 	"GPS",
+			"obsType":      "L1C",
+			"expObs":       9566,
+			"havObs":       7066,
+			"cycleSlips":   21
+		}, { ... }, { ... }
+	]
+}
+
+
 https://www.elastic.co/guide/en/elasticsearch/reference/current/getting-started.html
 https://www.elastic.co/guide/en/elasticsearch/reference/current/search-template.html
 http://stackoverflow.com/questions/9605292/make-elasticsearch-only-return-certain-fields
+

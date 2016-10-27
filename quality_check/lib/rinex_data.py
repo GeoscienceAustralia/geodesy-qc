@@ -194,6 +194,8 @@ class RINEXData():
             # the correct type
             # Extract fields and remove excess whitespace
             if self.data_type == 'o':
+                self.compressed = 'CRINEX VERS / TYPE' in header_fields
+
                 # Extract relevant fields from Observational data
                 receiver_info = header_fields['REC # / TYPE / VERS']
                 self.receiver_number = trim_whitespace(receiver_info[0:20])

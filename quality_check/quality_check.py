@@ -49,17 +49,16 @@ def lambda_handler(event, context):
         nav_file = getBRDCNavFile(bucket, rinex_obs.start_time, local_path)
 
     anubis_config = generateQCConfig(rinex_obs, nav_file, local_path)
-    print(anubis_config)
 
 
 def getBRDCNavFile(bucket, date, out_dir):
     # CHANGE TO DECOMPRESS THE BRDC FILE - NOT USING COMPRESSED DATA WHILE TESTING
     # Also need to sort out RINEX 3 vs RINEX 2 naming issues
-    brdc = 'public/daily/{}/brdc{}0.{}g'.format(
-        date.strftime('%Y/%j'), date.strftime('%j'), str(date.year)[2:])
+    year, day = date.strftime('%Y-%j').split('-')
+    brdc = 'public/daily/{}/{}/brdc{}0.{}g'.format(year, day, day, year[2:])
 
     # Might need to change this to download_file instead of get_object
-    # Makes decompression easier - maybe - can probably just decompress byte stream ....
+    # Makes decompression easier - maybe - can probably just decompress byte stream because gzip ....
     try:
         response = S3.get_object(Bucket=bucket, Key=brdc)
 

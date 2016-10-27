@@ -54,8 +54,9 @@ def lambda_handler(event, context):
 def getBRDCNavFile(bucket, date, out_dir):
     # CHANGE TO DECOMPRESS THE BRDC FILE - NOT USING COMPRESSED DATA WHILE TESTING
     # Also need to sort out RINEX 3 vs RINEX 2 naming issues
+    # ALSO CHANGE TO GET SPECIFIC BRDC FOR NON MIXED FILES - or only store mixed Nav files? (RINEX 2?)
     year, day = date.strftime('%Y-%j').split('-')
-    brdc = 'public/daily/{}/{}/brdc{}0.{}g'.format(year, day, day, year[2:])
+    brdc = 'public/daily/{}/{}/brdc{}0.{}n'.format(year, day, day, year[2:])
 
     # Might need to change this to download_file instead of get_object
     # Makes decompression easier - maybe - can probably just decompress byte stream because gzip ....

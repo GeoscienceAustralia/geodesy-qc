@@ -41,20 +41,21 @@ def lambda_handler(event, context):
     rinex_obs = RINEXData(local_file)
 
     # Get Nav File
-    if rinex.marker_name == 'BRDC':
+    if rinex_obs.marker_name == 'BRDC':
         # QC ALL FILES FOR THAT DAY - HOW TO TRIGGER THIS FOR EACH OF THOSE FILES INDIVIDUALLY?
         pass
 
     else:
-        nav_file = getBRDCNav(bucket, rinex_obs.start_time, local_path)
+        nav_file = getBRDCNavFile(bucket, rinex_obs.start_time, local_path)
 
-    generateQCConfig(rinex_obs, nav_file, local_path)
+    anubis_config = generateQCConfig(rinex_obs, nav_file, local_path)
+    print(anubis_config)
 
 
 def getBRDCNavFile(bucket, date, out_dir):
     # CHANGE TO DECOMPRESS THE BRDC FILE - NOT USING COMPRESSED DATA WHILE TESTING
     # Also need to sort out RINEX 3 vs RINEX 2 naming issues
-    brdc = 'public/daily/{}/brdc{}0.{}d'.format(
+    brdc = 'public/daily/{}/brdc{}0.{}g'.format(
         date.strftime('%Y/%j'), date.strftime('%j'), str(date.year)[2:])
 
     # Might need to change this to download_file instead of get_object

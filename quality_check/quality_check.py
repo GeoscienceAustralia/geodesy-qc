@@ -6,7 +6,8 @@ import datetime
 import boto3
 import botocore
 
-from BeautifulSoup import BeautifulSoup
+# Non standard libraries
+from lib.BeautifulSoup import BeautifulSoup
 from lib.rinex_data import *
 from lib.executable import Executable
 
@@ -57,7 +58,7 @@ def getBRDCNavFile(bucket, date, out_dir):
         date.strftime('%Y/%j'), date.strftime('%j'), str(date.year)[2:])
 
     # Might need to change this to download_file instead of get_object
-    # Makes decompression easier
+    # Makes decompression easier - maybe - can probably just decompress byte stream ....
     try:
         response = S3.get_object(Bucket=bucket, Key=brdc)
 

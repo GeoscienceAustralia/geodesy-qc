@@ -18,6 +18,7 @@ def lambda_handler(event, context):
     key = urllib.unquote_plus(
         event['Records'][0]['s3']['object']['key']).decode('utf8')
 
+    # Use AWS request ID from context object for unique directory
     session_id = context.aws_request_id
     local_path = '/tmp/{}'.format(session_id)
 
@@ -36,52 +37,63 @@ def lambda_handler(event, context):
             key, bucket))
         raise err
 
-    # Get Nav File
-    rinex = RINEXData(local_file)
+    rinex_obs = RINEXData(local_file)
 
+    # Get Nav File
     if rinex.marker_name == 'BRDC':
-        # Get list of files which haven't been QC'd
+        # QC ALL FILES FOR THAT DAY - HOW TO TRIGGER THIS FOR EACH OF THOSE FILES INDIVIDUALLY?
         pass
 
     else:
-        nav = getBRDCNav(bucket, rinex.start_time)
+        nav_file = getBRDCNav(bucket, rinex_obs.start_time, local_path)
 
-    generateQCConfig(rinex)
+    generateQCConfig(rinex_obs, nav_file, local_path)
 
 
-def getBRDCNavFile(bucket, date):
-    # Floor date
-    date = datetime.datetime.strptime(date.strftime('%Y%j'), '%Y%j')
-    brdc = 'public/daily/{}/brdc{}0.16d.gz'.format(
-        date.strftime('%Y/%j'), date.strftime('%j'))
+def getBRDCNavFile(bucket, date, out_dir):
+    # CHANGE TO DECOMPRESS THE BRDC FILE - NOT USING COMPRESSED DATA WHILE TESTING
+    # Also need to sort out RINEX 3 vs RINEX 2 naming issues
+    brdc = 'public/daily/{}/brdc{}0.{}d'.format(
+        date.strftime('%Y/%j'), date.strftime('%j'), str(date.year)[2:])
 
+    # Might need to change this to download_file instead of get_object
+    # Makes decompression easier
     try:
         response = S3.get_object(Bucket=bucket, Key=brdc)
 
     except botocore.exceptions.ClientError as err:
         if err.response['Error']['Code'] == 404:
+            # BRDC File does not yet exist, do nothing
             print('Daily BRDC file does not yet exist for {}'.format(
-                date.strftime('%Y/%j'))
+                date.strftime('%Y/%j')))
             return
 
-    return response['Body'].read()
+        raise
+
+    out_file = os.path.join(out_dir, os.path.basename(brdc))
+    with open(out_file, 'w') as output:
+        output.write(response['Body'].read())
+
+    return out_file
 
 
-def generateQCConfig(rinex):
+def generateQCConfig(rinex_obs, nav_file, output_dir):
     base = BeautifulSoup(open('anubis_base.cfg'))
 
     base.config.gen.beg.contents[0].replaceWith('"{}"'.format(
-        rinex.start_time.strftime('%Y-%m-%d 00:00:00')))
+        rinex_obs.start_time.strftime('%Y-%m-%d 00:00:00')))
 
     base.config.gen.end.contents[0].replaceWith('"{}"'.format(
-        rinex.start_time.strftime('%Y-%m-%d 23:59:59')))
+        rinex_obs.start_time.strftime('%Y-%m-%d 23:59:59')))
 
-    base.config.gen.sys.contents[0].replaceWith('"GPS"')
-    base.config.gen.int.contents[0].replaceWith('1')
-    base.config.gen.rec.contents[0].replaceWith(rinex.marker_name)
+    base.config.gen.rec.contents[0].replaceWith(rinex_obs.marker_name)
 
-    base.config.inputs.rinexo.contents[0].replaceWith('"{}"'.format(
-        rinex.local_file))
+    base.config.inputs.rinexo.contents[0].replaceWith(rinex_obs.local_file)
+
+    base.config.inputs.rinexn.contents[0].replaceWith(nav_file)
+
+    base.config.outputs.xml.contents[0].replaceWith(
+        os.path.join(output_dir, 'output.xml'))
     
     return base
 

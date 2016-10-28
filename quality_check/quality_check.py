@@ -43,12 +43,20 @@ def lambda_handler(event, context):
     # Get Nav File
     if rinex_obs.marker_name == 'BRDC':
         # QC ALL FILES FOR THAT DAY - HOW TO TRIGGER THIS FOR EACH OF THOSE FILES INDIVIDUALLY?
-        pass
+        print('BRDC file')
+        return
 
     else:
         nav_file = getBRDCNavFile(bucket, rinex_obs.start_time, local_path)
 
-    anubis_config = generateQCConfig(rinex_obs, nav_file, local_path)
+    anubis_config, result_file = generateQCConfig(
+        rinex_obs, nav_file, local_path)
+
+    anubis = Executable('lib/executables/anubis-2.0.0')
+    result = anubis.run('-x {}'.format(anubis_config))
+
+    with open(result_file) as results:
+        print(results.read())
 
 
 def getBRDCNavFile(bucket, date, out_dir):
@@ -94,10 +102,22 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
 
     base.config.inputs.rinexn.contents[0].replaceWith(nav_file)
 
-    base.config.outputs.xml.contents[0].replaceWith(
-        os.path.join(output_dir, 'output.xml'))
+    results_file = os.path.join(output_dir, 'output.xml')
+    base.config.outputs.xml.contents[0].replaceWith(results_file)
+
+    # work-around for issue with <beg> and <end> elements needing 
+    # their contents on the same line as the tags
+    config_string = base.prettify('utf-8')
+    config_string = config_string.replace('<beg>\n', '<beg>')
+    config_string = config_string.replace('\n  </beg>', '</beg>')
+    config_string = config_string.replace('<end>\n', '<end>')
+    config_string = config_string.replace('\n  </end>', '</end>')
+
+    config_file = os.path.join(output_dir, 'config.xml')
+    with open(config_file, 'w') as out:
+        out.write(config_string)
     
-    return base
+    return config_file, results_file
 
 
 def parseQCResult(filename):

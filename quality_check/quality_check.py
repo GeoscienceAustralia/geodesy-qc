@@ -63,6 +63,8 @@ def lambda_handler(event, context):
 
 
 def getBRDCNavFile(bucket, date, out_dir):
+    """Attempts to get the daily BRDC Nav file for a given date
+    """
     # CHANGE TO DECOMPRESS THE BRDC FILE - NOT USING COMPRESSED DATA WHILE TESTING
     # Also need to sort out RINEX 3 vs RINEX 2 naming issues
     # ALSO CHANGE TO GET SPECIFIC BRDC FOR NON MIXED FILES - or only store mixed Nav files? (RINEX 2?)
@@ -89,6 +91,13 @@ def getBRDCNavFile(bucket, date, out_dir):
 
 
 def generateQCConfig(rinex_obs, nav_file, output_dir):
+    """Generates Anubis configuration file given the following: 
+            RINEXData object
+            Path to corresponding Navigation file
+            Directory for quality output file
+
+    Explain Anubis and QC....
+    """
     base = BeautifulSoup(open('anubis_base.cfg'))
 
     base.config.gen.beg.contents[0].replaceWith('"{}"'.format(
@@ -122,6 +131,9 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
 
 
 def parseQCResult(filename):
+    """Extract relevant QC metrics from Anubis output file and store 
+    in ElasticSearch
+    """
     results = BeautifulSoup(open(filename))
 
     for sys in results.qc_gnss.data.findAll('sys'):

@@ -48,6 +48,10 @@ def lambda_handler(event, context):
 
     else:
         nav_file = getBRDCNavFile(bucket, rinex_obs.start_time, local_path)
+        if nav_file == None:
+            print('Daily BRDC file does not yet exist for {}'.format(
+                date.strftime('%Y/%j')))
+            return
 
     anubis_config, result_file = generateQCConfig(
         rinex_obs, nav_file, local_path)
@@ -73,8 +77,6 @@ def getBRDCNavFile(bucket, date, out_dir):
     except botocore.exceptions.ClientError as err:
         if err.response['Error']['Code'] == 404:
             # BRDC File does not yet exist, do nothing
-            print('Daily BRDC file does not yet exist for {}'.format(
-                date.strftime('%Y/%j')))
             return
 
         raise

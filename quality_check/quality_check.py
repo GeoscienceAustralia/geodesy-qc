@@ -55,8 +55,7 @@ def lambda_handler(event, context):
     anubis = Executable('lib/executables/anubis-2.0.0')
     result = anubis.run('-x {}'.format(anubis_config))
 
-    with open(result_file) as results:
-        print(results.read())
+    qc_data = parseQCResult(result_file)
 
 
 def getBRDCNavFile(bucket, date, out_dir):
@@ -121,4 +120,11 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
 
 
 def parseQCResult(filename):
-    return
+    results = BeautifulSoup(open(filename))
+
+    for sys in results.qc_gnss.data.findAll('sys'):
+        print(sys['type'])
+        for obs in sys.findAll('obs'):
+            print(obs.attrs)
+
+    return results

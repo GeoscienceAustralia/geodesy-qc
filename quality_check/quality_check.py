@@ -92,9 +92,12 @@ def getBRDCNavFile(bucket, date, out_dir):
 
 def generateQCConfig(rinex_obs, nav_file, output_dir):
     """Generates Anubis configuration file given the following: 
-            RINEXData object
-            Path to corresponding Navigation file
-            Directory for quality output file
+
+    rinex_obs   RINEXData object
+    nav_file    Path to corresponding Navigation file
+    output_dir  Directory for quality output file
+
+    Outputs config in output_dir
 
     Explain Anubis and QC....
     """
@@ -117,6 +120,7 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
 
     # work-around for issue with <beg> and <end> elements needing 
     # their contents on the same line as the tags
+    # Should be fixed in next version of Anubis
     config_string = base.prettify('utf-8')
     config_string = config_string.replace('<beg>\n', '<beg>')
     config_string = config_string.replace('\n  </beg>', '</beg>')
@@ -135,10 +139,17 @@ def parseQCResult(filename):
     in ElasticSearch
     """
     results = BeautifulSoup(open(filename))
+    doc = {
+        'timestamp': datetime.datetime.strptime(
+            results.qc_gnss.data.data_beg.contents[0], '%Y-%m-%d %H:%M:%S')
+    }
 
-    for sys in results.qc_gnss.data.findAll('sys'):
-        print(sys['type'])
-        for obs in sys.findAll('obs'):
-            print(obs.attrs)
+    for system in results.qc_gnss.data.findAll('sys'):
+        doc['system'] = system['type']
+        for obs in system.findAll('obs'):
+            for attr in obs.attrs:
+                doc[attr[0]] = attr[1]
+
+            print(doc)
 
     return results

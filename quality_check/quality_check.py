@@ -154,12 +154,14 @@ def parseQCResult(filename):
             for attribute, value in obs.attrs:
                 if attribute == 'type':
                     try:
-                        doc['type'], doc['phase'], doc['attribute'] = value
+                        doc['type'], doc['band'], doc['attribute'] = value
 
                     except ValueError:
-                        doc['type'], doc['phase'] = value
+                        doc['type'], doc['band'] = value
                         if doc['type'] == 'P':
                             doc['type'] = 'C'
+
+                        doc['attribute'] = None
 
                 else:
                     doc[attribute] = value

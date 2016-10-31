@@ -103,6 +103,7 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
     """
     base = BeautifulSoup(open('anubis_base.cfg'))
 
+    # Currently assuming that start and end time are start and end of day
     base.config.gen.beg.contents[0].replaceWith('"{}"'.format(
         rinex_obs.start_time.strftime('%Y-%m-%d 00:00:00')))
 
@@ -118,7 +119,7 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
     results_file = os.path.join(output_dir, 'output.xml')
     base.config.outputs.xml.contents[0].replaceWith(results_file)
 
-    # work-around for issue with <beg> and <end> elements needing 
+    # work-around for issue with <beg> and <end> elements needing
     # their contents on the same line as the tags
     # Should be fixed in next version of Anubis
     config_string = base.prettify('utf-8')
@@ -139,14 +140,15 @@ def parseQCResult(filename):
     in ElasticSearch
     """
     results = BeautifulSoup(open(filename))
-    doc = {
-        'timestamp': datetime.datetime.strptime(
-            results.qc_gnss.data.data_beg.contents[0], '%Y-%m-%d %H:%M:%S')
-    }
 
     for system in results.qc_gnss.data.findAll('sys'):
-        doc['system'] = system['type']
         for obs in system.findAll('obs'):
+            doc = {
+                'site_id': results.qc_gnss.head.site_id.contents[0],
+                'system': system['type'],
+                'timestamp': datetime.datetime.strptime(
+                    results.qc_gnss.data.data_beg.contents[0], '%Y-%m-%d %H:%M:%S')
+            }
             for attr in obs.attrs:
                 doc[attr[0]] = attr[1]
 

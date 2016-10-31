@@ -5,6 +5,7 @@ import os
 import datetime
 import boto3
 import botocore
+#from elasticsearch import Elasticsearch
 
 # Non standard libraries
 from lib.BeautifulSoup import BeautifulSoup
@@ -12,6 +13,7 @@ from lib.rinex_data import *
 from lib.executable import Executable
 
 S3 = boto3.client('s3')
+#ES = Elasticsearch()
 
 def lambda_handler(event, context):
     # Get the file object and bucket names from the event
@@ -149,9 +151,24 @@ def parseQCResult(filename):
                 'timestamp': datetime.datetime.strptime(
                     results.qc_gnss.data.data_beg.contents[0], '%Y-%m-%d %H:%M:%S')
             }
-            for attr in obs.attrs:
-                doc[attr[0]] = attr[1]
+            for attribute, value in obs.attrs:
+                if attribute == 'type':
+                    try:
+                        doc['type'], doc['phase'], doc['attribute'] = value
+
+                    except ValueError:
+                        doc['type'], doc['phase'] = value
+                        if doc['type'] == 'P':
+                            doc['type'] = 'C'
+
+                else:
+                    doc[attribute] = value
+
+            if doc['type'] not in ['L', 'C']:
+                continue
 
             print(doc)
+            #response = ES.index(
+            #    index='QualityMetrics', doc_type='daily', id=1, body=doc)
 
-    return results
+    return

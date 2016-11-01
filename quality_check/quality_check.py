@@ -5,15 +5,15 @@ import os
 import datetime
 import boto3
 import botocore
-#from elasticsearch import Elasticsearch
 
 # Non standard libraries
 from lib.BeautifulSoup import BeautifulSoup
 from lib.rinex_data import *
 from lib.executable import Executable
+from lib.elasticsearch import Elasticsearch, RequestsHttpConnection
+from lib.aws_requests_auth.aws_auth import AWSRequestsAuth
 
 S3 = boto3.client('s3')
-#ES = Elasticsearch()
 
 def lambda_handler(event, context):
     # Get the file object and bucket names from the event
@@ -167,10 +167,31 @@ def parseQCResult(filename):
                     doc[attribute] = value
 
             if doc['type'] not in ['L', 'C']:
+                # Only want to store Pseudoranges and Codes
                 continue
 
             print(doc)
-            #response = ES.index(
-            #    index='QualityMetrics', doc_type='daily', id=1, body=doc)
 
     return
+
+
+def postElasticsearchDocument(data):
+    cred = boto3.session.Session().get_credentials()
+    es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
+    auth = AWSRequestsAuth(
+        aws_access_key=cred.access_key,
+        aws_secret_access_key=cred.secret_key,
+        aws_host=es_host,
+        aws_region='ap-southeast-2',
+        aws_service='es')
+
+    es_client = Elasticsearch(
+        host=es_host,
+        port=80,
+        connection_class=RequestsHttpConnection,
+        http_auth=auth)
+
+    es_client.create(
+        index='quality_metrics',
+        doc_type='daily',
+        body=data)

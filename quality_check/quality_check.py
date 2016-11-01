@@ -158,8 +158,8 @@ def parseQCResult(filename):
     """
     results = BeautifulSoup(open(filename))
 
+    docs = ''
     for system in results.qc_gnss.data.findAll('sys'):
-        docs = ''
         for obs in system.findAll('obs'):
             doc = {
                 'site_id': results.qc_gnss.head.site_id.contents[0],
@@ -189,7 +189,7 @@ def parseQCResult(filename):
             create = {'create': {'_index': 'quality_check', '_type': 'daily'}}
             docs += '{}\n{}\n'.format(create, doc)
 
-        print(docs)
+    print(docs)
     #es_client.create(
     #    index='quality_metrics',
     #    doc_type='daily',

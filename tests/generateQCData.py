@@ -42,11 +42,12 @@ def generateRecords(start_date, end_date):
         
                     for data in [code, phase]:
                         data['expectedObs'] = random.randrange(25000, 32000)
-                        data['haveObs'] = random.randrange(21000, data['expectedObs'])
                         data['expectedObs10Degrees'] = random.randrange(22000, data['expectedObs'])
+                        data['haveObs'] = random.randrange(21000, data['expectedObs10Degrees'])
                         data['haveObs10Degrees'] = random.randrange(20000, data['haveObs'])
                         data['numberSat'] = random.randrange(15, 32)
 
+                        # Need to generate bulk queries instead
                         es_client.create(
                             index='quality_metrics',
                             doc_type='daily',

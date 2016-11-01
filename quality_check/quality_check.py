@@ -15,6 +15,21 @@ from lib.aws_requests_auth.aws_auth import AWSRequestsAuth
 
 S3 = boto3.client('s3')
 
+cred = boto3.session.Session().get_credentials()
+es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
+auth = AWSRequestsAuth(
+    aws_access_key=cred.access_key,
+    aws_secret_access_key=cred.secret_key,
+    aws_host=es_host,
+    aws_region='ap-southeast-2',
+    aws_service='es')
+
+es_client = Elasticsearch(
+    host=es_host,
+    port=80,
+    connection_class=RequestsHttpConnection,
+    http_auth=auth)
+
 def lambda_handler(event, context):
     # Get the file object and bucket names from the event
     bucket = event['Records'][0]['s3']['bucket']['name']
@@ -144,6 +159,7 @@ def parseQCResult(filename):
     results = BeautifulSoup(open(filename))
 
     for system in results.qc_gnss.data.findAll('sys'):
+        docs = ''
         for obs in system.findAll('obs'):
             doc = {
                 'site_id': results.qc_gnss.head.site_id.contents[0],
@@ -170,28 +186,13 @@ def parseQCResult(filename):
                 # Only want to store Pseudoranges and Codes
                 continue
 
-            print(doc)
+            create = {'create': {'_index': 'quality_check', '_type': 'daily'}}
+            docs += '{}\n{}\n'.format(create, doc)
+
+        print(docs)
+    #es_client.create(
+    #    index='quality_metrics',
+    #    doc_type='daily',
+    #    body=data)
 
     return
-
-
-def postElasticsearchDocument(data):
-    cred = boto3.session.Session().get_credentials()
-    es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
-    auth = AWSRequestsAuth(
-        aws_access_key=cred.access_key,
-        aws_secret_access_key=cred.secret_key,
-        aws_host=es_host,
-        aws_region='ap-southeast-2',
-        aws_service='es')
-
-    es_client = Elasticsearch(
-        host=es_host,
-        port=80,
-        connection_class=RequestsHttpConnection,
-        http_auth=auth)
-
-    es_client.create(
-        index='quality_metrics',
-        doc_type='daily',
-        body=data)

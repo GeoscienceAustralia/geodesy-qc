@@ -5,6 +5,8 @@ import os
 import datetime
 import boto3
 import botocore
+import zlib
+import gzip
 
 # Non standard libraries
 from lib.BeautifulSoup import BeautifulSoup
@@ -43,17 +45,21 @@ def lambda_handler(event, context):
     if not os.path.exists(local_path):
         os.makedirs(local_path)
 
-    filename = os.path.basename(key)
-    local_file = os.path.join(local_path, filename)
-
     try:
-        S3.download_file(bucket, key, local_file)
+        response = S3.get_object(Bucket=bucket, Key=key)
 
     except Exception as err:
         # This should only fail more than once if permissions are incorrect
         print('Error: Failed to get object {} from bucket {}.'.format(
             key, bucket))
         raise err
+
+    filename, extension = os.path.splitext(os.path.basename(key))
+    local_file = os.path.join(local_path, filename)
+
+    file_data = zlib.decompress(response['Body'].read(), 15+32)
+    with open(local_file, 'wb') as out_file:
+        out_file.write(file_data)
 
     rinex_obs = RINEXData(local_file)
 
@@ -70,6 +76,9 @@ def lambda_handler(event, context):
                 date.strftime('%Y/%j')))
             return
 
+    if rinex_obs.compressed == True:
+        rinex_file = hatanaka_decompress(out_file)
+
     anubis_config, result_file = generateQCConfig(
         rinex_obs, nav_file, local_path)
 
@@ -79,14 +88,36 @@ def lambda_handler(event, context):
     qc_data = parseQCResult(result_file)
 
 
+def hatanaka_decompress(local_file):
+    CRX2RNX = Executable('lib/executables/CRX2RNX')
+    rinex_data = CRX2RNX.run('{} -'.format(local_file))
+
+    if CRX2RNX.returncode > 0:
+        raise Exception('CRX2RNX failed with error code {}: {}'.format(
+            CRX2RNX.returncode, CRX2RNX.stderr))
+
+    new_name = local_file.replace('.crx', '.rnx')
+    
+    if new_name == local_file:
+        new_name = local_file[:-1] + 'o'
+
+    with open(new_name, 'w') as out_file:
+        out_file.write(rinex_data)
+
+    return new_name
+
+
 def getBRDCNavFile(bucket, date, out_dir):
     """Attempts to get the daily BRDC Nav file for a given date
+
+    Broadcast Navigation file always has prefix public/daily/nav/<year>/<day>/
+    Filename is always 'brdc .. RINEX 2 or 3 formatting ..'
     """
     # CHANGE TO DECOMPRESS THE BRDC FILE - NOT USING COMPRESSED DATA WHILE TESTING
     # Also need to sort out RINEX 3 vs RINEX 2 naming issues
     # ALSO CHANGE TO GET SPECIFIC BRDC FOR NON MIXED FILES - or only store mixed Nav files? (RINEX 2?)
     year, day = date.strftime('%Y-%j').split('-')
-    brdc = 'public/daily/{}/{}/brdc{}0.{}n'.format(year, day, day, year[2:])
+    brdc = 'public/daily/nav/{}/{}/brdc{}0.{}n.gz'.format(year, day, day, year[2:])
 
     # Might need to change this to download_file instead of get_object
     # Makes decompression easier - maybe - can probably just decompress byte stream because gzip ....
@@ -101,8 +132,11 @@ def getBRDCNavFile(bucket, date, out_dir):
         raise
 
     out_file = os.path.join(out_dir, os.path.basename(brdc))
+    # Decompress Nav data, must be .gz file given the GET request asks for one
+    nav_data = zlib.decompress(response['Body'].read(), 15+32)
+    
     with open(out_file, 'w') as output:
-        output.write(response['Body'].read())
+        output.write(nav_data)
 
     return out_file
 
@@ -153,10 +187,21 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
 
 
 def parseQCResult(filename):
-    """Extract relevant QC metrics from Anubis output file and store 
-    in ElasticSearch
+    """Extract relevant QC metrics from Anubis output file and store in 
+    ElasticSearch
     """
     results = BeautifulSoup(open(filename))
+
+    # Map attribute names from Anubis output to Elasticsearch index
+    attribute_map = {
+        'expZ': 'expected_obs',
+        'havZ': 'have_obs',
+        'expU': 'expected_obs_10_degrees',
+        'havU': 'have_obs_10_degrees',
+        'nsat': 'number_sat',
+        'mpth': 'multipath',
+        'slps': 'cycle_slips'
+    }
 
     docs = ''
     for system in results.qc_gnss.data.findAll('sys'):
@@ -165,28 +210,31 @@ def parseQCResult(filename):
                 'site_id': results.qc_gnss.head.site_id.contents[0],
                 'system': system['type'],
                 'timestamp': datetime.datetime.strptime(
-                    results.qc_gnss.data.data_beg.contents[0], '%Y-%m-%d %H:%M:%S')
+                    results.qc_gnss.data.data_beg.contents[0], '%Y-%m-%d %H:%M:%S'),
+                'file_type': 'daily'
             }
             for attribute, value in obs.attrs:
                 if attribute == 'type':
                     try:
-                        doc['type'], doc['band'], doc['attribute'] = value
+                        _type, doc['band'], doc['attribute'] = value
 
                     except ValueError:
-                        doc['type'], doc['band'] = value
-                        if doc['type'] == 'P':
-                            doc['type'] = 'C'
+                        _type, doc['band'] = value
+                        if _type == 'P':
+                            _type = 'C'
 
                         doc['attribute'] = None
 
                 else:
-                    doc[attribute] = value
+                    doc[attribute_map[attribute]] = value
 
-            if doc['type'] not in ['L', 'C']:
+            if _type not in ['L', 'C']:
                 # Only want to store Pseudoranges and Codes
                 continue
 
-            create = {'create': {'_index': 'quality_check', '_type': 'daily'}}
+            types = {'L': 'phase', 'C': 'code'}
+
+            create = {'create': {'_index': 'quality_check', '_type': types[_type]}}
             docs += '{}\n{}\n'.format(create, doc)
 
     print(docs)

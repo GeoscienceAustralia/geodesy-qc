@@ -26,7 +26,7 @@ auth = AWSRequestsAuth(
     aws_region='ap-southeast-2',
     aws_service='es')
 
-es_client = Elasticsearch(
+ES_CLIENT = Elasticsearch(
     host=es_host,
     port=80,
     connection_class=RequestsHttpConnection,
@@ -77,7 +77,8 @@ def lambda_handler(event, context):
             return
 
     if rinex_obs.compressed == True:
-        rinex_file = hatanaka_decompress(out_file)
+        # Kind of sloppy way to link RINEXData object to hatanake decompressed version
+        rinex_obs.local_file = hatanaka_decompress(out_file)
 
     anubis_config, result_file = generateQCConfig(
         rinex_obs, nav_file, local_path)
@@ -85,7 +86,7 @@ def lambda_handler(event, context):
     anubis = Executable('lib/executables/anubis-2.0.0')
     result = anubis.run('-x {}'.format(anubis_config))
 
-    qc_data = parseQCResult(result_file)
+    parseQCResult(result_file)
 
 
 def hatanaka_decompress(local_file):
@@ -192,7 +193,7 @@ def parseQCResult(filename):
     """
     results = BeautifulSoup(open(filename))
 
-    # Map attribute names from Anubis output to Elasticsearch index
+    # Map attribute names from Anubis output to Elasticsearch index names
     attribute_map = {
         'expZ': 'expected_obs',
         'havZ': 'have_obs',
@@ -238,7 +239,7 @@ def parseQCResult(filename):
             docs += '{}\n{}\n'.format(create, doc)
 
     print(docs)
-    #es_client.create(
+    #ES_CLIENT.create(
     #    index='quality_metrics',
     #    doc_type='daily',
     #    body=data)

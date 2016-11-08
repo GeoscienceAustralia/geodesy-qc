@@ -63,28 +63,25 @@ def lambda_handler(event, context):
 
     rinex_obs = RINEXData(local_file)
 
-    # Get Nav File
-    if rinex_obs.marker_name == 'BRDC':
-        # QC ALL FILES FOR THAT DAY - HOW TO TRIGGER THIS FOR EACH OF THOSE FILES INDIVIDUALLY?
-        print('BRDC file')
+    nav_file = getBRDCNavFile(bucket, rinex_obs.start_time, local_path)
+    if nav_file == None:
+        print('Daily BRDC file does not yet exist for {}'.format(
+            date.strftime('%Y/%j')))
         return
 
-    else:
-        nav_file = getBRDCNavFile(bucket, rinex_obs.start_time, local_path)
-        if nav_file == None:
-            print('Daily BRDC file does not yet exist for {}'.format(
-                date.strftime('%Y/%j')))
-            return
-
     if rinex_obs.compressed == True:
-        # Kind of sloppy way to link RINEXData object to hatanake decompressed version
+        # Kind of sloppy way to link RINEXData object to hatanaka decompressed version
         rinex_obs.local_file = hatanaka_decompress(out_file)
 
     anubis_config, result_file = generateQCConfig(
         rinex_obs, nav_file, local_path)
 
     anubis = Executable('lib/executables/anubis-2.0.0')
-    result = anubis.run('-x {}'.format(anubis_config))
+    anubis_log = anubis.run('-x {}'.format(anubis_config))
+    if anubis.returncode > 0:
+        print('Anubis errored with return code {}: {}\n{}'.format(
+            anubis.returncode, anubis.stderr, anubis.stdout)
+        return
 
     parseQCResult(result_file)
 

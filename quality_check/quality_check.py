@@ -240,9 +240,8 @@ def parseQCResult(filename):
             docs += '{}\n{}\n'.format(create, doc)
 
     print(docs)
-    #ES_CLIENT.create(
-    #    index='quality_metrics',
-    #    doc_type='daily',
-    #    body=data)
+    ES_CLIENT.bulk(
+        index='quality_metrics',
+        body=docs)
 
     return

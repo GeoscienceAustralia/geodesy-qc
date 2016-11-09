@@ -7,13 +7,17 @@ import boto3
 import botocore
 import zlib
 import gzip
+import sys
+
+lib = os.path.abspath('lib/')
+sys.path.append(lib)
 
 # Non standard libraries
-from lib.BeautifulSoup import BeautifulSoup
-from lib.rinex_data import *
-from lib.executable import Executable
-from lib.elasticsearch import Elasticsearch, RequestsHttpConnection
-from lib.aws_requests_auth.aws_auth import AWSRequestsAuth
+from BeautifulSoup import BeautifulSoup
+from rinex_data import *
+from executable import Executable
+from elasticsearch import Elasticsearch, RequestsHttpConnection
+from aws_requests_auth.aws_auth import AWSRequestsAuth
 
 S3 = boto3.client('s3')
 
@@ -80,7 +84,7 @@ def lambda_handler(event, context):
     anubis_log = anubis.run('-x {}'.format(anubis_config))
     if anubis.returncode > 0:
         print('Anubis errored with return code {}: {}\n{}'.format(
-            anubis.returncode, anubis.stderr, anubis.stdout)
+            anubis.returncode, anubis.stderr, anubis.stdout))
         return
 
     parseQCResult(result_file)

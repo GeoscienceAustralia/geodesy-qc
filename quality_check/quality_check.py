@@ -75,7 +75,7 @@ def lambda_handler(event, context):
 
     if rinex_obs.compressed == True:
         # Kind of sloppy way to link RINEXData object to hatanaka decompressed version
-        rinex_obs.local_file = hatanaka_decompress(out_file)
+        rinex_obs.local_file = hatanaka_decompress(rinex_obs.local_file)
 
     anubis_config, result_file = generateQCConfig(
         rinex_obs, nav_file, local_path)
@@ -196,10 +196,10 @@ def parseQCResult(filename):
 
     # Map attribute names from Anubis output to Elasticsearch index names
     attribute_map = {
-        'expZ': 'expected_obs',
-        'havZ': 'have_obs',
-        'expU': 'expected_obs_10_degrees',
-        'havU': 'have_obs_10_degrees',
+        'expz': 'expected_obs',
+        'havz': 'have_obs',
+        'expu': 'expected_obs_10_degrees',
+        'havu': 'have_obs_10_degrees',
         'nsat': 'number_sat',
         'mpth': 'multipath',
         'slps': 'cycle_slips'

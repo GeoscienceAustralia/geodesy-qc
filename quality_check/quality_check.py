@@ -26,6 +26,7 @@ es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws
 auth = AWSRequestsAuth(
     aws_access_key=cred.access_key,
     aws_secret_access_key=cred.secret_key,
+    aws_token=cred.token,
     aws_host=es_host,
     aws_region='ap-southeast-2',
     aws_service='es')
@@ -205,7 +206,6 @@ def parseQCResult(filename):
         'slps': 'cycle_slips'
     }
 
-    docs = ''
     for system in results.qc_gnss.data.findAll('sys'):
         for obs in system.findAll('obs'):
             doc = {
@@ -236,12 +236,6 @@ def parseQCResult(filename):
 
             types = {'L': 'phase', 'C': 'code'}
 
-            create = {'create': {'_index': 'quality_check', '_type': types[_type]}}
-            docs += '{}\n{}\n'.format(create, doc)
-
-    print(docs)
-    ES_CLIENT.bulk(
-        index='quality_metrics',
-        body=docs)
+            ES_CLIENT.index(index='quality_metrics', doc_type=types[_type], body=doc)
 
     return

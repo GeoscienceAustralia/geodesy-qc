@@ -5,6 +5,7 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from aws_requests_auth.aws_auth import AWSRequestsAuth
 
 cred = boto3.session.Session().get_credentials()
+es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
 auth = AWSRequestsAuth(
     aws_access_key=cred.access_key,
     aws_secret_access_key=cred.secret_key,
@@ -12,14 +13,16 @@ auth = AWSRequestsAuth(
     aws_region='ap-southeast-2',
     aws_service='es')
 
-es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
 es_client = Elasticsearch(
     host=es_host,
     port=80,
     connection_class=RequestsHttpConnection,
     http_auth=auth)
 
-def generateRecords(start_date, end_date):
+def generateRecords(start_date, end_date=None):
+    if end_date == None:
+        end_date = start_date + datetime.timedelta(5)
+
     for days in range(int((end_date - start_date).days)):
         date = start_date + datetime.timedelta(days)
         

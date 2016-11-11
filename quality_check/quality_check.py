@@ -8,7 +8,9 @@ import botocore
 import zlib
 import gzip
 import sys
+import json
 
+# Non standard libraries packaged in ./lib directory
 lib = os.path.abspath('lib/')
 sys.path.append(lib)
 
@@ -286,7 +288,7 @@ def triggerQCFromNav(year, day, function_name, bucket):
 
         except Exception as err:
             print('Invocation of Quality Check failed for {}\n{}'.format(
-                key, err))
+                s3_obj, err))
             pass
 
 
@@ -297,14 +299,12 @@ def getKeys(bucket, prefixes):
 
     prefixes can be single prefix, or list of prefixes
     """
-    s3_client = boto3.client('s3')
-
     if type(prefixes) is not list:
         prefixes = [prefixes]
 
     keys = []
     for prefix in prefixes:
-        paginator = s3_client.get_paginator('list_objects')
+        paginator = S3.get_paginator('list_objects')
         page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
         for page in page_iterator:

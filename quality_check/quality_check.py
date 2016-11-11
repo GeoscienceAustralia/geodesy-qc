@@ -44,7 +44,8 @@ def lambda_handler(event, context):
         event['Records'][0]['s3']['object']['key']).decode('utf8')
 
     status, file_type, data_type, year, day = key.split('/')[:5]
-    if file_type == 'nav':
+
+    if data_type == 'nav':
         triggerQCFromNav(year, day, context.function_name, bucket)
         return
 

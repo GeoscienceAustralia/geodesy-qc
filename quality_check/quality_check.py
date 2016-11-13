@@ -209,13 +209,13 @@ def parseQCResult(filename):
 
     # Map attribute names from Anubis output to Elasticsearch index names
     attribute_map = {
-        'expz': 'expected_obs',
-        'havz': 'have_obs',
-        'expu': 'expected_obs_10_degrees',
-        'havu': 'have_obs_10_degrees',
-        'nsat': 'number_sat',
-        'mpth': 'multipath',
-        'slps': 'cycle_slips'
+        'expz': ('expected_obs', int),
+        'havz': ('have_obs', int),
+        'expu': ('expected_obs_10_degrees', int),
+        'havu': ('have_obs_10_degrees', int),
+        'nsat': ('number_sat', int),
+        'mpth': ('multipath', float),
+        'slps': ('cycle_slips', int)
     }
 
     for system in results.qc_gnss.data.findAll('sys'):
@@ -240,7 +240,8 @@ def parseQCResult(filename):
                         doc['attribute'] = None
 
                 else:
-                    doc[attribute_map[attribute]] = value
+                    attr_name, attr_type = attribute_map[attribute]
+                    doc[attr_name] = attr_type(value)
 
             if _type not in ['L', 'C']:
                 # Only want to store Pseudoranges and Codes

@@ -239,6 +239,8 @@ def parseQCResult(filename):
 
                         doc['attribute'] = None
 
+                    doc['band'] = int(doc['band'])
+
                 else:
                     attr_name, attr_type = attribute_map[attribute]
                     doc[attr_name] = attr_type(value)

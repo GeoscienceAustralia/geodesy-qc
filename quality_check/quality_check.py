@@ -23,27 +23,13 @@ from aws_requests_auth.aws_auth import AWSRequestsAuth
 
 S3 = boto3.client('s3')
 
-cred = boto3.session.Session().get_credentials()
-es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
-auth = AWSRequestsAuth(
-    aws_access_key=cred.access_key,
-    aws_secret_access_key=cred.secret_key,
-    aws_token=cred.token,
-    aws_host=es_host,
-    aws_region='ap-southeast-2',
-    aws_service='es')
-
-ES_CLIENT = Elasticsearch(
-    host=es_host,
-    port=80,
-    connection_class=RequestsHttpConnection,
-    http_auth=auth)
-
 def lambda_handler(event, context):
     # Get the file object and bucket names from the event
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = urllib.unquote_plus(
         event['Records'][0]['s3']['object']['key']).decode('utf8')
+
+    print('Quality Check: Key {}'.format(key))
 
     status, file_type, data_type, year, day = key.split('/')[:5]
 
@@ -201,6 +187,24 @@ def parseQCResult(filename):
     """Extract relevant QC metrics from Anubis output file and store in 
     ElasticSearch
     """
+    es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
+    es_index = 'quality_metrics'
+
+    cred = boto3.session.Session().get_credentials()
+    auth = AWSRequestsAuth(
+        aws_access_key=cred.access_key,
+        aws_secret_access_key=cred.secret_key,
+        aws_token=cred.token,
+        aws_host=es_host,
+        aws_region='ap-southeast-2',
+        aws_service='es')
+
+    es_client = Elasticsearch(
+        host=es_host,
+        port=80,
+        connection_class=RequestsHttpConnection,
+        http_auth=auth)
+
     results = BeautifulSoup(open(filename))
 
     # Map attribute names from Anubis output to Elasticsearch index names
@@ -244,14 +248,14 @@ def parseQCResult(filename):
 
             types = {'L': 'phase', 'C': 'code'}
 
-            ES_CLIENT.index(index='quality_metrics', doc_type=types[_type], body=doc)
+            es_client.index(index=es_index, doc_type=types[_type], body=doc)
 
     return
 
 
 def triggerQCFromNav(year, day, function_name, bucket):
     """Invoke a lambda function with PUT operations for all objects in archive 
-    for a given year and day
+    for a given year and day of year
     """
     lambda_client = boto3.client('lambda')
     lambdaTriggerParams = {

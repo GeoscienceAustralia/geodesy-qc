@@ -34,7 +34,9 @@ def lambda_handler(event, context):
     status, file_type, data_type, year, day = key.split('/')[:5]
 
     if data_type == 'nav':
-        triggerQCFromNav(year, day, context.function_name, bucket)
+        if os.path.basename(key)[:4].lower() == 'brdc':
+            triggerQCFromNav(year, day, context.function_name, bucket)
+
         return
 
     # Use AWS request ID from context object for unique directory
@@ -53,6 +55,7 @@ def lambda_handler(event, context):
             key, bucket))
         raise err
 
+    # Decompress Observation file and store locally
     filename, extension = os.path.splitext(os.path.basename(key))
     local_file = os.path.join(local_path, filename)
 
@@ -60,21 +63,25 @@ def lambda_handler(event, context):
     with open(local_file, 'wb') as out_file:
         out_file.write(file_data)
 
+    # Parse RINEX file
     rinex_obs = RINEXData(local_file)
 
+    # Attempt to get Broadcast Navigation file from archive
     nav_file = getBRDCNavFile(bucket, rinex_obs.start_time, local_path)
     if nav_file == None:
-        print('Daily BRDC file does not yet exist for {}'.format(
-            date.strftime('%Y/%j')))
+        print('Daily BRDC file does not yet exist for {}/{}'.format(
+            year, day))
         return
 
+    # Hatanaka decompress RINEX file if needed 
     if rinex_obs.compressed == True:
-        # Kind of sloppy way to link RINEXData object to hatanaka decompressed version
         rinex_obs.local_file = hatanaka_decompress(rinex_obs.local_file)
 
+    # Generate an Anubis XML config file
     anubis_config, result_file = generateQCConfig(
         rinex_obs, nav_file, local_path)
 
+    # Run Anubis with the generated config file as input
     anubis = Executable('lib/executables/anubis-2.0.0')
     anubis_log = anubis.run('-x {}'.format(anubis_config))
     if anubis.returncode > 0:
@@ -82,10 +89,22 @@ def lambda_handler(event, context):
             anubis.returncode, anubis.stderr, anubis.stdout))
         return
 
+    # Parse results of Anubis
     parseQCResult(result_file)
+
+    return
 
 
 def hatanaka_decompress(local_file):
+    """Hatanaka decompresses a local file using the CRX2RNX program
+    Outputs data to new file with correct name under same directory as input
+
+    Input:
+        local_file  path to Hatanaka compressed RINEX file
+
+    Returns:
+        new_name    name of created decompressed RINEX file
+    """
     CRX2RNX = Executable('lib/executables/CRX2RNX')
     rinex_data = CRX2RNX.run('{} -'.format(local_file))
 
@@ -93,8 +112,10 @@ def hatanaka_decompress(local_file):
         raise Exception('CRX2RNX failed with error code {}: {}'.format(
             CRX2RNX.returncode, CRX2RNX.stderr))
 
+    # RINEX 3 file extension changes from crx to rnx when decompressed
     new_name = local_file.replace('.crx', '.rnx')
     
+    # Hatanaka compressed RINEX 2 files are suffixed with d, replace with o
     if new_name == local_file:
         new_name = local_file[:-1] + 'o'
 
@@ -105,24 +126,19 @@ def hatanaka_decompress(local_file):
 
 
 def getBRDCNavFile(bucket, date, out_dir):
-    """Attempts to get the daily BRDC Nav file for a given date
+    """Attempts to get the daily BRDC Nav file for a given date from archive
 
     Broadcast Navigation file always has prefix public/daily/nav/<year>/<day>/
-    Filename is always 'brdc .. RINEX 2 or 3 formatting ..'
+    Filename is always 'brdc..'
     """
-    # CHANGE TO DECOMPRESS THE BRDC FILE - NOT USING COMPRESSED DATA WHILE TESTING
-    # Also need to sort out RINEX 3 vs RINEX 2 naming issues
-    # ALSO CHANGE TO GET SPECIFIC BRDC FOR NON MIXED FILES - or only store mixed Nav files? (RINEX 2?)
     year, day = date.strftime('%Y-%j').split('-')
     brdc = 'public/daily/nav/{}/{}/brdc{}0.{}n.gz'.format(year, day, day, year[2:])
 
-    # Might need to change this to download_file instead of get_object
-    # Makes decompression easier - maybe - can probably just decompress byte stream because gzip ....
     try:
         response = S3.get_object(Bucket=bucket, Key=brdc)
 
     except botocore.exceptions.ClientError as err:
-        if err.response['Error']['Code'] == 404:
+        if err.response['Error']['Code'] == 'NoSuchKey':
             # BRDC File does not yet exist, do nothing
             return
 
@@ -141,13 +157,14 @@ def getBRDCNavFile(bucket, date, out_dir):
 def generateQCConfig(rinex_obs, nav_file, output_dir):
     """Generates Anubis configuration file given the following: 
 
-    rinex_obs   RINEXData object
-    nav_file    Path to corresponding Navigation file
-    output_dir  Directory for quality output file
+    Input:
+        rinex_obs       RINEXData object
+        nav_file        path to corresponding Navigation file
+        output_dir      directory for quality output file
 
-    Outputs config in output_dir
-
-    Explain Anubis and QC....
+    Returns:
+        config_file     file containing generated config file
+        results_file    file which Anubis will output results to
     """
     base = BeautifulSoup(open('anubis_base.cfg'))
 
@@ -207,7 +224,7 @@ def parseQCResult(filename):
 
     results = BeautifulSoup(open(filename))
 
-    # Map attribute names from Anubis output to Elasticsearch index names
+    # Map attribute names from Anubis output to Elasticsearch index names and types
     attribute_map = {
         'expz': ('expected_obs', int),
         'havz': ('have_obs', int),

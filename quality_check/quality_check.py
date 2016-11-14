@@ -82,7 +82,7 @@ def lambda_handler(event, context):
         rinex_obs, nav_file, local_path)
 
     # Run Anubis with the generated config file as input
-    anubis = Executable('lib/executables/anubis-2.0.0')
+    anubis = Executable('lib/executables/anubis-2.0.1')
     anubis_log = anubis.run('-x {}'.format(anubis_config))
     if anubis.returncode > 0:
         print('Anubis errored with return code {}: {}\n{}'.format(
@@ -184,18 +184,9 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
     results_file = os.path.join(output_dir, 'output.xml')
     base.config.outputs.xml.contents[0].replaceWith(results_file)
 
-    # work-around for issue with <beg> and <end> elements needing
-    # their contents on the same line as the tags
-    # Should be fixed in next version of Anubis
-    config_string = base.prettify('utf-8')
-    config_string = config_string.replace('<beg>\n', '<beg>')
-    config_string = config_string.replace('\n  </beg>', '</beg>')
-    config_string = config_string.replace('<end>\n', '<end>')
-    config_string = config_string.replace('\n  </end>', '</end>')
-
     config_file = os.path.join(output_dir, 'config.xml')
     with open(config_file, 'w') as out:
-        out.write(config_string)
+        out.write(base.prettify('utf-8'))
     
     return config_file, results_file
 

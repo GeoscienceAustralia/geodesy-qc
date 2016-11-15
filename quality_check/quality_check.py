@@ -198,6 +198,7 @@ def parseQCResult(filename):
     """Extract relevant QC metrics from Anubis output file and store in 
     ElasticSearch
     """
+    # Create authenticated connection to Elasticsearch cluster
     es_host = 'search-gnss-datacenter-es-2a65hbml7jlcthde6few3g7yxi.ap-southeast-2.es.amazonaws.com'
     es_index = 'quality_metrics'
 
@@ -216,6 +217,7 @@ def parseQCResult(filename):
         connection_class=RequestsHttpConnection,
         http_auth=auth)
 
+    # Read results XML file
     results = BeautifulSoup(open(filename))
 
     # Map attribute names from Anubis output to Elasticsearch index names and types
@@ -229,6 +231,7 @@ def parseQCResult(filename):
         'slps': ('cycle_slips', int)
     }
 
+    # Extract relevant fields from results file
     for system in results.qc_gnss.data.findAll('sys'):
         for obs in system.findAll('obs'):
             doc = {
@@ -260,8 +263,10 @@ def parseQCResult(filename):
                 # Only want to store Pseudoranges and Codes
                 continue
 
+            # Convert type to full name, L=phase C=code
             types = {'L': 'phase', 'C': 'code'}
 
+            # Submit record to Elasticsearch
             es_client.index(index=es_index, doc_type=types[_type], body=doc)
 
     return
@@ -272,6 +277,7 @@ def triggerQCFromNav(year, day, function_name, bucket):
     for a given year and day of year
     """
     lambda_client = boto3.client('lambda')
+    # Define base trigger parameters
     lambdaTriggerParams = {
         "Records": [
             {
@@ -292,21 +298,22 @@ def triggerQCFromNav(year, day, function_name, bucket):
         ]
     }
 
+    # Loop through all public and private daily obs files for given day
     prefix = '/daily/obs/{}/{}/'.format(year, day)
-
     for s3_obj in getKeys(bucket, ['public' + prefix, 'private' + prefix]):
         request = lambdaTriggerParams
         request['Records'][0]['s3']['object']['key'] = s3_obj
         request['Records'][0]['s3']['bucket']['name'] = bucket
 
         try:
+            # Attempt to invoke lambda function
             lambda_client.invoke_async(
                 FunctionName=function_name,
                 InvokeArgs=json.dumps(request))
 
         except Exception as err:
-            print('Invocation of Quality Check failed for {}\n{}'.format(
-                s3_obj, err))
+            print('Invocation of {} Lambda failed for key {}\n{}'.format(
+                function_name, s3_obj, err))
             pass
 
 

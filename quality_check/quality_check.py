@@ -37,6 +37,9 @@ def lambda_handler(event, context):
         if os.path.basename(key)[:4].lower() == 'brdc':
             triggerQCFromNav(year, day, context.function_name, bucket)
 
+        else:
+            print('Do not Quality Check using non-Broadcast Navigation data')
+
         return
 
     # Use AWS request ID from context object for unique directory
@@ -195,7 +198,7 @@ def parseQCResult(filename):
     """Extract relevant QC metrics from Anubis output file and store in 
     ElasticSearch
     """
-    es_host = 'search-test-qc-nnfncq57wg3kmkpwuaj3t2nkoa.ap-southeast-2.es.amazonaws.com'
+    es_host = 'search-gnss-datacenter-es-2a65hbml7jlcthde6few3g7yxi.ap-southeast-2.es.amazonaws.com'
     es_index = 'quality_metrics'
 
     cred = boto3.session.Session().get_credentials()

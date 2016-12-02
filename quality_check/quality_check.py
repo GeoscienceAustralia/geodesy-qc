@@ -34,7 +34,8 @@ def lambda_handler(event, context):
     status, file_type, data_type, year, day = key.split('/')[:5]
 
     if data_type == 'nav':
-        if os.path.basename(key)[:4].lower() == 'brdc':
+        nav_file = os.path.basename(key)
+        if nav_file[:4].lower() == 'brdc' and nav_file[-4:] == 'n.gz':
             triggerQCFromNav(year, day, context.function_name, bucket)
 
         else:
@@ -244,16 +245,21 @@ def parseQCResult(filename):
             for attribute, value in obs.attrs:
                 if attribute == 'type':
                     try:
-                        _type, doc['band'], doc['attribute'] = value
+                        _type, band, doc['attribute'] = value
 
                     except ValueError:
-                        _type, doc['band'] = value
+                        _type, band = value
+                        if _type == 'C':
+                            doc['attribute'] = 'RINEX2-C'
+
                         if _type == 'P':
+                            doc['attribute'] = 'RINEX2-P'
                             _type = 'C'
 
-                        doc['attribute'] = None
+                        if _type == 'L':
+                            doc['attribute'] = 'RINEX2-L'
 
-                    doc['band'] = int(doc['band'])
+                    doc['band'] = int(band)
 
                 else:
                     attr_name, attr_type = attribute_map[attribute]
@@ -267,7 +273,12 @@ def parseQCResult(filename):
             types = {'L': 'phase', 'C': 'code'}
 
             # Submit record to Elasticsearch
-            es_client.index(index=es_index, doc_type=types[_type], body=doc)
+            doc_id = '{}{}{}{}{}{}'.format(
+                doc['site_id'], doc['system'], doc['timestamp'], 
+                doc['file_type'], doc['band'], doc['attribute'])
+
+            es_client.index(
+                index=es_index, doc_type=types[_type], body=doc, id=doc_id)
 
     return
 

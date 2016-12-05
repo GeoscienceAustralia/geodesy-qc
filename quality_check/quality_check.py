@@ -94,7 +94,7 @@ def lambda_handler(event, context):
         return
 
     # Parse results of Anubis
-    parseQCResult(result_file)
+    parseQCResult(result_file, key)
 
     return
 
@@ -195,9 +195,11 @@ def generateQCConfig(rinex_obs, nav_file, output_dir):
     return config_file, results_file
 
 
-def parseQCResult(filename):
+def parseQCResult(filename, key):
     """Extract relevant QC metrics from Anubis output file and store in 
     ElasticSearch
+
+    Only takes key for inclusion in ES documents
     """
     # Create authenticated connection to Elasticsearch cluster
     es_host = 'search-gnss-datacenter-es-2a65hbml7jlcthde6few3g7yxi.ap-southeast-2.es.amazonaws.com'
@@ -240,7 +242,8 @@ def parseQCResult(filename):
                 'system': system['type'],
                 'timestamp': datetime.datetime.strptime(
                     results.qc_gnss.data.data_beg.contents[0], '%Y-%m-%d %H:%M:%S'),
-                'file_type': 'daily'
+                'file_type': 'daily',
+                'filename': key
             }
             for attribute, value in obs.attrs:
                 if attribute == 'type':
@@ -272,11 +275,12 @@ def parseQCResult(filename):
             # Convert type to full name, L=phase C=code
             types = {'L': 'phase', 'C': 'code'}
 
-            # Submit record to Elasticsearch
+            # ID is composite field so that reprocessed files will overwrite old data
             doc_id = '{}{}{}{}{}{}'.format(
                 doc['site_id'], doc['system'], doc['timestamp'], 
                 doc['file_type'], doc['band'], doc['attribute'])
 
+            # Submit record to Elasticsearch
             es_client.index(
                 index=es_index, doc_type=types[_type], body=doc, id=doc_id)
 

@@ -100,7 +100,6 @@ def lambda_handler(event, context):
     # Delete tmp working space and Anubis copy to resolve Lambda disk 
     # space allocation issue
     shutil.rmtree(local_path)
-    os.remove(anubis.command)
 
     return
 

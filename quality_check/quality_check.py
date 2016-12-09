@@ -116,7 +116,7 @@ def hatanaka_decompress(local_file):
     """
     # Check if CRX2RNX is in /tmp - where Lambda instances are throttled
     if os.path.isfile('/tmp/CRX2RNX'):
-        CRX2RNX = Executable('tmp/CRX2RNX', True)
+        CRX2RNX = Executable('/tmp/CRX2RNX', True)
 
     else:
         CRX2RNX = Executable('lib/executables/CRX2RNX')

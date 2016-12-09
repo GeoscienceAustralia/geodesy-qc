@@ -2,7 +2,6 @@ import os
 import stat
 import subprocess
 import shutil
-import uuid
 
 class Executable:
     """Prepare and run 64 bit Linux executable with AWS Lambda
@@ -10,7 +9,7 @@ class Executable:
     Written by Brandon Owen - github.com/umeat
     """
 
-    def __init__(self, source):
+    def __init__(self, source, no_move=False):
         """Prepare access and permissions for executable
         
         Source executable file is moved to /tmp/ directory and given execution 
@@ -18,20 +17,24 @@ class Executable:
         
         Input:
             source      String containing relative location of executable file
+            no_move     Whether or not to move executable to tmp space
             
         Self variables: 
             command     New location of executable, used to run executable
         """
-        # Create copy of executable in /tmp/
-        self.command = '/tmp/{}{}'.format(
-            uuid.uuid4(), os.path.basename(source))
+        if no_move:
+            self.command = source
 
-        shutil.copyfile(source, self.command)
-		
+        else:
+            # Create copy of executable in /tmp/
+            self.command = '/tmp/{}'.format(os.path.basename(source))
+
+            shutil.copyfile(source, self.command)
+        
         # Grant execution permissions
         st = os.stat(self.command)
         os.chmod(self.command, st.st_mode | stat.S_IEXEC)
-		
+        
     def run(self, args=''):
         """Run executable from shell with given arguments
         
@@ -54,7 +57,7 @@ class Executable:
         process = subprocess.Popen(
             '{} {}'.format(self.command, args), shell=True, 
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			
+            
         # Store stdout and stderr
         self.stdout, self.stderr = process.communicate()
         self.returncode = process.returncode

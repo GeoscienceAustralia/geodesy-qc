@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import urllib
 import os
+import shutil
 import datetime
 import boto3
 import botocore
@@ -96,6 +97,11 @@ def lambda_handler(event, context):
     # Parse results of Anubis
     parseQCResult(result_file, key)
 
+    # Delete tmp working space and Anubis copy to resolve Lambda disk 
+    # space allocation issue
+    shutil.rmtree(local_path)
+    os.remove(anubis.command)
+
     return
 
 
@@ -109,7 +115,13 @@ def hatanaka_decompress(local_file):
     Returns:
         new_name    name of created decompressed RINEX file
     """
-    CRX2RNX = Executable('lib/executables/CRX2RNX')
+    # Check if CRX2RNX is in /tmp - where Lambda instances are throttled
+    if os.path.isfile('/tmp/CRX2RNX'):
+        CRX2RNX = Executable('tmp/CRX2RNX', True)
+
+    else:
+        CRX2RNX = Executable('lib/executables/CRX2RNX')
+
     rinex_data = CRX2RNX.run('{} -'.format(local_file))
 
     if CRX2RNX.returncode > 0:
@@ -252,15 +264,7 @@ def parseQCResult(filename, key):
 
                     except ValueError:
                         _type, band = value
-                        if _type == 'C':
-                            doc['attribute'] = 'RINEX2-C'
-
-                        if _type == 'P':
-                            doc['attribute'] = 'RINEX2-P'
-                            _type = 'C'
-
-                        if _type == 'L':
-                            doc['attribute'] = 'RINEX2-L'
+                        doc['attribute'] = None
 
                     doc['band'] = int(band)
 
